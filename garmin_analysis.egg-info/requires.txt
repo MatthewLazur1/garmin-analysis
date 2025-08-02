@@ -1,0 +1,13 @@
+requests>=2.31
+pandas>=2.2
+garminconnect>=0.1.45
+certifi>=2024.2.2
+readchar>=4.2.1
+dotenv>=0.9.9
+datetime>=5.5
+garth>=0.5.17
+
+[dev]
+pytest>=8.0
+black>=24.0
+mypy>=1.8

@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+garmin_analysis.egg-info/PKG-INFO
+garmin_analysis.egg-info/SOURCES.txt
+garmin_analysis.egg-info/dependency_links.txt
+garmin_analysis.egg-info/entry_points.txt
+garmin_analysis.egg-info/requires.txt
+garmin_analysis.egg-info/top_level.txt

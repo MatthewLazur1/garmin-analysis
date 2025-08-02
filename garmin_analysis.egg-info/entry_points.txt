@@ -1,0 +1,2 @@
+[console_scripts]
+garmin-analyze = garmin_analysis.cli:main

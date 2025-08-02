@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: garmin-analysis
+Version: 0.1.0
+Summary: Garmin performance analysis tools
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/garmin-analysis
+Project-URL: Documentation, https://github.com/yourusername/garmin-analysis#readme
+Project-URL: Issues, https://github.com/yourusername/garmin-analysis/issues
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31
+Requires-Dist: pandas>=2.2
+Requires-Dist: garminconnect>=0.1.45
+Requires-Dist: certifi>=2024.2.2
+Requires-Dist: readchar>=4.2.1
+Requires-Dist: dotenv>=0.9.9
+Requires-Dist: datetime>=5.5
+Requires-Dist: garth>=0.5.17
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: black>=24.0; extra == "dev"
+Requires-Dist: mypy>=1.8; extra == "dev"
+
+# garmin-analysis

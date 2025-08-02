@@ -1,0 +1,40 @@
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "garmin-analysis"
+version = "0.1.0"
+description = "Garmin performance analysis tools"
+readme = "README.md"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.13"
+dependencies = [
+    "requests>=2.31",
+    "pandas>=2.2",
+    "garminconnect>=0.1.45",
+    "certifi>=2024.2.2",
+    "readchar>=4.2.1",
+    "dotenv>=0.9.9",
+    "datetime>=5.5",
+    "garth>=0.5.17",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/garmin-analysis"
+Documentation = "https://github.com/yourusername/garmin-analysis#readme"
+Issues = "https://github.com/yourusername/garmin-analysis/issues"
+
+[project.scripts]
+garmin-analyze = "garmin_analysis.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "black>=24.0",
+    "mypy>=1.8"
+]
