@@ -39,38 +39,63 @@ class ReportReader:
     
     def fetch_garmin_data(self):
         """
-            Fetch Garmin client with persistent auth via Garth.
+        Fetch Garmin client with persistent auth using token-based authentication.
         """
         load_dotenv()
         email = os.getenv("GARMIN_EMAIL")
         password = os.getenv("GARMIN_PASSWORD")
+        tokenstore = os.getenv("GARMINTOKENS") or "~/.garminconnect"
 
         try:
             # Try loading saved session first
-            garth.client.load_session()
+            print(f"Trying to login to Garmin Connect using token data from directory '{tokenstore}'...")
             garmin = garminconnect.Garmin()
-            garmin.login()  # Validate session
+            garmin.login(tokenstore)
             print(f"Logged in as: {garmin.display_name}")
             return garmin
 
-        except Exception as e:
-            print(f"No saved session found. Attempting fresh login... Error: {e}")
+        except (FileNotFoundError, garth.exc.GarthHTTPError, GarminConnectAuthenticationError):
+            # Session is expired or doesn't exist. Need to log in again
+            print(f"Login tokens not present, login with your Garmin Connect credentials to generate them.\n"
+                  f"They will be stored in '{tokenstore}' for future use.\n")
+            
+            try:
+                # Fresh login with credentials
+                garmin = garminconnect.Garmin(
+                    email=email, 
+                    password=password, 
+                    is_cn=False, 
+                    return_on_mfa=True
+                )
+                result1, result2 = garmin.login()
+                
+                # Handle MFA if required
+                if result1 == "needs_mfa":
+                    mfa_code = input("MFA one-time code: ")
+                    garmin.resume_login(result2, mfa_code)
 
-        try:
-            # Fresh login
-            garmin = garminconnect.Garmin(email, password)
-            garmin.login()
-            print(f"Logged in as: {garmin.display_name}")
+                # Save tokens for future use
+                garmin.garth.dump(tokenstore)
+                print(f"Oauth tokens stored in '{tokenstore}' directory for future use.\n")
+                
+                # Re-login with tokens for consistency
+                garmin.login(tokenstore)
+                print(f"Logged in as: {garmin.display_name}")
+                return garmin
 
-            # Save session for future use
-            garth.client.dump_session()
-            return garmin
+            except (
+                FileNotFoundError,
+                garth.exc.GarthHTTPError,
+                GarminConnectAuthenticationError,
+                requests.exceptions.HTTPError,
+            ) as err:
+                print(f"Error during login: {err}")
+                raise
 
         except (
             GarminConnectConnectionError,
-            GarminConnectAuthenticationError,
             GarminConnectTooManyRequestsError,
         ) as err:
             print(f"Error: {err}")
             raise
-    
+        

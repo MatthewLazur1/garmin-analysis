@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import datetime, timedelta
+import json
 
 class ReportBuilder:
     def __init__(self):
@@ -26,12 +27,13 @@ class ReportBuilder:
         
         # Get activities for the date range
         activities = client.get_activities_by_date(start_date, end_date)
-        print(activities)
+        # with open('activities.json', 'w') as f:
+        #     json.dump(activities, f, indent=4)
         # Filter for running activities
         running_activities = []
         for activity in activities:
             activity_type = activity.get('activityType', {}).get('typeKey', '').lower()
-            if activity_type in ['treadmill_running', 'running']:
+            if activity_type in ['treadmill_running', 'running', 'manual']:
                 running_activities.append(activity)
         
         # Convert to DataFrame
@@ -40,9 +42,6 @@ class ReportBuilder:
         if df.empty:
             print("No running activities found in the specified date range.")
             return pd.DataFrame()
-        
-        # Debug: Print available columns
-        print("Available columns:", df.columns.tolist())
         
         # Convert distance from meters to miles
         df['distance_miles'] = df['distance'] / 1609.34
@@ -53,13 +52,6 @@ class ReportBuilder:
         # Create proper weekly periods (Monday to Sunday)
         df['week_start'] = df['start_time'].dt.to_period('W-SUN')  # Week starting Sunday
         
-        # Debug: Print a few examples to verify week assignment
-        print("Sample week assignments:")
-        sample_df = df.head(3)[['start_time', 'week_start', 'distance_miles']]
-        for idx, row in sample_df.iterrows():
-            print(f"Activity: {row['start_time'].strftime('%Y-%m-%d %A')} -> Week: {row['week_start']}")
-        
-        print(df)
         # Group by week and sum distances
         weekly_mileage = df.groupby('week_start')['distance_miles'].agg([
             'sum',  # Total mileage
@@ -79,6 +71,58 @@ class ReportBuilder:
                                for period in weekly_mileage.index]
         
         return weekly_mileage
+    
+    def get_all_time_prs(self, client):
+        """
+            Returns all time personal records for the user
+        """
+        pr_data = client.get_personal_record()
+        DISTANCE_MAP = {
+        3: {'distance': 3.10686, 'name': '5K'},
+        4: {'distance': 6.21371, 'name': '10K'},
+        5: {'distance': 13.1094, 'name': 'Half Marathon'},
+        6: {'distance': 26.2188, 'name': 'Marathon'},
+    }
+    
+        records = []
+        for record in pr_data:
+            type_id = record['typeId']
+            dist_info = DISTANCE_MAP.get(type_id)
+            if dist_info is None:
+                continue
+            if record['value'] > 0:
+                # Calculate pace in min/mile (meters to miles conversion)
+                pace_min_per_mile = (record['value'] / 60) / (dist_info['distance'])
+                
+                # Format time as HH:MM:SS
+                total_seconds = record['value']
+                hours = int(total_seconds // 3600)
+                minutes = int((total_seconds % 3600) // 60)
+                seconds = int(total_seconds % 60)
+                formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                
+                # Format pace as X:YY/mile
+                pace_min = int(pace_min_per_mile)
+                pace_sec = int((pace_min_per_mile % 1) * 60)
+                formatted_pace = f"{pace_min}:{pace_sec:02d}/mile"
+                
+                records.append({
+                    'Distance': dist_info['name'],
+                    'Time': formatted_time,
+                    'Pace': formatted_pace,
+                    # Keep raw numbers for sorting/analysis
+                    '_seconds': total_seconds,
+                    '_pace_value': pace_min_per_mile
+                })
+        
+        # Create DataFrame and sort by distance
+        df = pd.DataFrame(records)
+        df = df.sort_values('_seconds').reset_index(drop=True)
+        
+        return df[['Distance', 'Time', 'Pace']]
+        
+
+        
     
     def show_activity_splits(self, activity_id, client):
         details = client.get_activity_splits(activity_id)
