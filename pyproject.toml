@@ -22,6 +22,10 @@ dependencies = [
     "dotenv>=0.9.9",
     "datetime>=5.5",
     "garth>=0.5.17",
+    "streamlit>=1.50.0",
+    "google-generativeai>=0.8.5",
+    "pypdf2>=3.0.1",
+    "plotly>=6.3.0",
 ]
 
 [project.urls]
