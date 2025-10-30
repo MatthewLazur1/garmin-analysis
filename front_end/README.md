@@ -40,7 +40,7 @@ A beautiful web application for analyzing your Garmin Connect data, featuring we
    ```bash
    GARMIN_EMAIL=your_email@example.com
    GARMIN_PASSWORD=your_password
-   GARMINTOKENS=~/.garminconnect
+   OPENWEATHERMAP_API_KEY=api_key
    ```
 
 3. **Run the Application**
