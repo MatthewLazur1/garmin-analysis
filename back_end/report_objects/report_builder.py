@@ -1,10 +1,13 @@
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
+from report_objects.report_reader import ReportReader
+from constants import REGRESSION_START_DATE_YEAR, REGRESSION_START_DATE_MONTH, REGRESSION_START_DATE_DAY
 
 class ReportBuilder:
     def __init__(self):
         self.report = {}
+        self.report_reader = ReportReader()
     
     def aggregate_weekly_mileage(self, client, start_date, end_date, time_delta=7):
         """
@@ -19,21 +22,38 @@ class ReportBuilder:
         Returns:
             DataFrame with weekly mileage totals
         """
-        # Convert dates to datetime if they're not already
+        # Normalize inputs to datetime for internal use
         if isinstance(start_date, str):
-            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        elif isinstance(start_date, datetime):
+            start_dt = start_date
+        elif isinstance(start_date, date):
+            start_dt = datetime.combine(start_date, datetime.min.time())
+        else:
+            raise TypeError("start_date must be a datetime, date, or 'YYYY-MM-DD' string")
+
         if isinstance(end_date, str):
-            end_date = datetime.strptime(end_date, '%Y-%m-%d')
-        
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        elif isinstance(end_date, datetime):
+            end_dt = end_date
+        elif isinstance(end_date, date):
+            end_dt = datetime.combine(end_date, datetime.min.time())
+        else:
+            raise TypeError("end_date must be a datetime, date, or 'YYYY-MM-DD' string")
+
+        # Garmin API expects date strings in 'YYYY-MM-DD'
+        api_start = start_dt.strftime('%Y-%m-%d')
+        api_end = end_dt.strftime('%Y-%m-%d')
+
         # Get activities for the date range
-        activities = client.get_activities_by_date(start_date, end_date)
+        activities = client.get_activities_by_date(api_start, api_end)
         # with open('activities.json', 'w') as f:
         #     json.dump(activities, f, indent=4)
         # Filter for running activities
         running_activities = []
         for activity in activities:
             activity_type = activity.get('activityType', {}).get('typeKey', '').lower()
-            if activity_type in ['treadmill_running', 'running', 'manual']:
+            if activity_type in ['treadmill_running', 'running', 'manual', 'track_running']:
                 running_activities.append(activity)
         
         # Convert to DataFrame
@@ -56,11 +76,10 @@ class ReportBuilder:
         weekly_mileage = df.groupby('week_start')['distance_miles'].agg([
             'sum',  # Total mileage
             'count',  # Number of activities
-            'mean'   # Average distance per activity
         ]).round(2)
         
         # Rename columns for clarity
-        weekly_mileage.columns = ['Total_Miles', 'Activity_Count', 'Avg_Distance_Miles']
+        weekly_mileage.columns = ['Total_Miles', 'Activity_Count',]
         
         # Convert period index to show week range more clearly
         # weekly_mileage.index = [f"{period.start_time.strftime('%Y-%m-%d')} to {period.end_time.strftime('%Y-%m-%d')}" 
@@ -69,6 +88,7 @@ class ReportBuilder:
         # Alternative: Show just the week start date for cleaner display
         weekly_mileage.index = [f"Week of {period.start_time.strftime('%Y-%m-%d')}" 
                                for period in weekly_mileage.index]
+        weekly_mileage.index.name = 'week_start'
         
         return weekly_mileage
     
@@ -138,36 +158,121 @@ class ReportBuilder:
             print(f"Lap {lap['lapIndex']}: {round(dist_mi, 2)} mi in {round(lap['duration'],1)}s "
                 f"→ pace {pace_min}:{pace_sec:02d}/mi | HR: {lap.get('averageHR')}")
     
-    
-    def process_weather_data(data):
-        hourly = data['hourly']
-        hourly_times = pd.to_datetime(hourly['time'], utc=True)
-        temperatures = hourly['temperature_2m']
-        humidities = hourly['relative_humidity_2m']
 
-        weather = pd.DataFrame({
-            'Time': hourly_times,
-            'Temperature (°F)': temperatures,
-            'Humidity (%)': humidities
-    })
+    def get_activity_summary(self, client, activity_id) -> pd.DataFrame:
+        """
+        Fetch a single Garmin activity and return a one-row DataFrame with:
+        - avg_hr, start_time, finish_time, pace (min/mile), distance (miles), elevation_gain, location
+        """
+        activity = client.get_activity(activity_id)
+        summary = activity.get('summaryDTO', {}) if isinstance(activity, dict) else {}
+
+        # Times
+        start_str = summary.get('startTimeLocal') or summary.get('startTimeGMT')
+        start_time = pd.to_datetime(start_str) if start_str else None
+        duration_sec = summary.get('duration') or 0
+        elapsed_sec = summary.get('elapsedDuration') or duration_sec
+        finish_time = (start_time + pd.to_timedelta(elapsed_sec, unit='s')) if start_time is not None else None
+
+        # Distance and pace
+        distance_m = summary.get('distance') or 0.0
+        distance_miles = distance_m / 1609.34 if distance_m else 0.0
+        moving_sec = summary.get('movingDuration') or duration_sec
+        # Decimal minutes per mile (e.g., 8.5)
+        pace_min_per_mile = (moving_sec / distance_miles / 60) if distance_miles > 0 else None
+        pace_float = round(pace_min_per_mile, 2) if pace_min_per_mile is not None else None
+
+        # Other fields
+        avg_hr = summary.get('averageHR') or 0
+        elevation_gain = (summary.get('elevationGain') or 0.0) * 3.28084 # Convert to feet
+        longitude = summary.get('startLongitude') or None
+        latitude = summary.get('startLatitude') or None
+        row = {
+            'activity_id': activity.get('activityId') if isinstance(activity, dict) else activity_id,
+            'activity_name': activity.get('activityName') if isinstance(activity, dict) else None,
+            'start_time': start_time,
+            'finish_time': finish_time,
+            'distance_miles': round(distance_miles, 2),
+            'pace': pace_float,
+            'avg_hr': avg_hr,
+            'elevation_gain': elevation_gain,
+            'longitude': longitude,
+            'latitude': latitude,
+        }
+        return pd.DataFrame([row])
+    
+    def get_activity_weather(self, activity_summary):
+
+
+        activity_id = activity_summary.iloc[0]['activity_id']
+        if activity_summary.iloc[0]['latitude'] is None or activity_summary.iloc[0]['longitude'] is None:
+            raise Exception("Latitude or longitude is None")
+        latitude = activity_summary.iloc[0]['latitude']
+        longitude = activity_summary.iloc[0]['longitude']
+        start = activity_summary.iloc[0]['start_time']
+        end = activity_summary.iloc[0]['finish_time']
+        data = self.report_reader.fetch_weather_data_openweathermap(latitude, longitude, start, end)
+       
+        item = data[0] if isinstance(data, list) else data
+        if not isinstance(item, dict):
+            raise Exception("Item is not a dictionary")
+
+        main = item.get('main', {})
+        temperatures = main['temp']
+        humidities = main['humidity']
+
+        weather = pd.DataFrame([{
+            'activity_id': activity_id,
+            'temperature': temperatures,
+            'humidity': humidities
+    }])
 
         return weather
+    
+    def get_sleep_data(self, activity_summary, client):
+        activity_id = activity_summary.iloc[0]['activity_id']
+        start_time = activity_summary.iloc[0]['start_time']
+        
+        # Garmin client expects a 'YYYY-MM-DD' string
+        try:
+            start_date_str = start_time.date().isoformat()
+            print('Start date string: ', start_date_str)
+        except Exception:
+            # Fallback if already a string or not a Timestamp/date
+            start_date_str = str(start_time)
+        sleep_data = client.get_sleep_data(start_date_str)
+        
+        try:
+            hrv_data = client.get_hrv_data(start_date_str)
+            hrv = hrv_data['hrvSummary']['lastNightAvg']
+            
+        except Exception:
+            hrv = None
+
+        try:
+            resting_heart_rate = sleep_data['restingHeartRate']
+        except Exception:
+            resting_heart_rate = None
+        
+        sleep = pd.DataFrame([{
+            'activity_id': activity_id,
+            'hrv': hrv,
+            'resting_heart_rate': resting_heart_rate
+        }])
+        return sleep
+
+    def get_days_since_start(self, activity_summary):
+        activity_id = activity_summary.iloc[0]['activity_id']
+        activity_start_time = activity_summary.iloc[0]['start_time'].date()
+        start_date = datetime(REGRESSION_START_DATE_YEAR, REGRESSION_START_DATE_MONTH, REGRESSION_START_DATE_DAY).date()
+        days_since_start = (activity_start_time - start_date).days
+        return pd.DataFrame([{
+            'activity_id': activity_id,
+            'days_since_start': days_since_start
+        }])
 
 
-# #Get dataframe of garmin data
-# data_df = get_data(results)
 
-# #Add empty column to be added to in next for loop
-# data_df['Temp'] = None
-# data_df['Humid'] = None
-# data_df['Pace'] = None
-# data_df['Time'] = None
-
-# data_df = data_df.sort_values(by='start_time', ascending=True)
-
-# first_activity_time = pd.to_datetime(data_df['start_time'].iloc[0], utc=True)
-
-# #Adds the Temp and Humid to Dataframe
 # for index, activity in data_df.iterrows():
 #     #Gets long.lat, start, and stop
 #     lat = activity['start_lat']

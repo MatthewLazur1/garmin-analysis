@@ -11,7 +11,7 @@ readme = "README.md"
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
-license = { text = "MIT" }
+
 requires-python = ">=3.13"
 dependencies = [
     "requests>=2.31",
@@ -26,6 +26,8 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "pypdf2>=3.0.1",
     "plotly>=6.3.0",
+    "scikit-learn (>=1.7.2,<2.0.0)",
+    "statsmodels (>=0.14.5,<0.15.0)",
 ]
 
 [project.urls]
@@ -42,3 +44,6 @@ dev = [
     "black>=24.0",
     "mypy>=1.8"
 ]
+
+[tool.setuptools]
+packages = ["back_end", "front_end"]

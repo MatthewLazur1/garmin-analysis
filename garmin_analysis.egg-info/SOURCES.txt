@@ -1,5 +1,8 @@
 README.md
 pyproject.toml
+back_end/constants.py
+back_end/main.py
+front_end/app.py
 garmin_analysis.egg-info/PKG-INFO
 garmin_analysis.egg-info/SOURCES.txt
 garmin_analysis.egg-info/dependency_links.txt

@@ -3,7 +3,6 @@ Name: garmin-analysis
 Version: 0.1.0
 Summary: Garmin performance analysis tools
 Author-email: Your Name <your.email@example.com>
-License: MIT
 Project-URL: Homepage, https://github.com/yourusername/garmin-analysis
 Project-URL: Documentation, https://github.com/yourusername/garmin-analysis#readme
 Project-URL: Issues, https://github.com/yourusername/garmin-analysis/issues

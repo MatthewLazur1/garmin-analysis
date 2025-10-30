@@ -17,11 +17,15 @@ A beautiful web application for analyzing your Garmin Connect data, featuring we
 - Color-coded charts for easy comparison
 - Detailed records table
 
-### 📈 Combined Analysis
-- Integrated view of both mileage and PR data
-- Summary statistics dashboard
-- Side-by-side data tables
-- Comprehensive performance overview
+### 📝 Marathon Plan
+- Create/load/save multiple named training plans
+- Per-day fields: distance, type (Easy/Steady/Workout/Rest), notes
+- Automatic weekly totals and readable plan view
+
+### ⚡ Predictive Pace
+- One-click pace prediction for today’s planned run
+- Uses your plan, Garmin sleep/HR data, and local weather
+- Shows predicted pace and key inputs (temp, humidity, HRV, resting HR)
 
 ## Setup
 
@@ -42,12 +46,12 @@ A beautiful web application for analyzing your Garmin Connect data, featuring we
 3. **Run the Application**
    ```bash
    # From the project root
-   streamlit run front-end/app.py
+   streamlit run front_end/app.py
    ```
 
-   Or from the front-end directory:
+   Or from the front_end directory:
    ```bash
-   cd front-end
+   cd front_end
    streamlit run app.py
    ```
 
@@ -56,7 +60,8 @@ A beautiful web application for analyzing your Garmin Connect data, featuring we
 1. **Authentication**: Click "Connect to Garmin" in the sidebar to authenticate with your Garmin Connect account
 2. **Weekly Mileage**: Select date ranges and week periods to analyze your running mileage
 3. **Personal Records**: View your all-time personal records with visual comparisons
-4. **Combined Analysis**: Get a comprehensive view of both datasets
+4. **Marathon Plan**: Build or load a plan, edit daily distance/type/notes, and save
+5. **Pace Prediction**: Open the Pace tab and click Predict to get today’s expected pace
 
 ## Technical Details
 
@@ -90,11 +95,16 @@ A beautiful web application for analyzing your Garmin Connect data, featuring we
   - Time comparison across distances
 - **Metrics**: Total PRs, fastest pace, longest distance
 
-### Combined Analysis Tab
-- **Integrated Dashboard**: Summary of both datasets
-- **Comprehensive Metrics**: All key statistics in one place
-- **Side-by-Side Tables**: Compare weekly mileage and PR data
-- **Trend Analysis**: See how your training correlates with performance
+### Marathon Plan Tab
+- **Plan Editor**: Edit daily distance, type, and notes (per week)
+- **Weekly Totals**: Auto-summed from daily distance fields
+- **Readable View**: Human-friendly plan table for quick review
+- **Persistence**: Save/load named plans in the app
+
+### Pace Prediction Tab
+- **Today’s Run**: Automatically picks today’s planned run from your current plan
+- **Prediction**: Uses Garmin sleep/resting HR and local weather
+- **Outputs**: Predicted pace (min/mi) and metrics for temp, humidity, HRV, resting HR, etc.
 
 ## Customization
 
