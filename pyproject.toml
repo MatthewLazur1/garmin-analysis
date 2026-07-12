@@ -28,6 +28,9 @@ dependencies = [
     "plotly>=6.3.0",
     "scikit-learn (>=1.7.2,<2.0.0)",
     "statsmodels (>=0.14.5,<0.15.0)",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "mcp>=1.2.0",
 ]
 
 [project.urls]
@@ -37,6 +40,7 @@ Issues = "https://github.com/yourusername/garmin-analysis/issues"
 
 [project.scripts]
 garmin-analyze = "garmin_analysis.cli:main"
+garmin-mcp = "back_end.mcp_server.server:main"
 
 [project.optional-dependencies]
 dev = [

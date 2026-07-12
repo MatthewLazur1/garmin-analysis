@@ -1,6 +1,6 @@
-from report_objects.report_reader import ReportReader
-from report_objects.report_manager import ReportManager
-from report_objects.report_builder import ReportBuilder
+from back_end.report_objects.report_reader import ReportReader
+from back_end.report_objects.report_manager import ReportManager
+from back_end.report_objects.report_builder import ReportBuilder
 from getpass import getpass
 import garminconnect
 from datetime import date, datetime, timedelta

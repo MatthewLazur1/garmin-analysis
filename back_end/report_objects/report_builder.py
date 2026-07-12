@@ -1,8 +1,8 @@
 import pandas as pd
 from datetime import datetime, timedelta, date
 import json
-from report_objects.report_reader import ReportReader
-from constants import REGRESSION_START_DATE_YEAR, REGRESSION_START_DATE_MONTH, REGRESSION_START_DATE_DAY
+from back_end.report_objects.report_reader import ReportReader
+from back_end.constants import REGRESSION_START_DATE_YEAR, REGRESSION_START_DATE_MONTH, REGRESSION_START_DATE_DAY
 
 class ReportBuilder:
     def __init__(self):
@@ -260,6 +260,92 @@ class ReportBuilder:
             'resting_heart_rate': resting_heart_rate
         }])
         return sleep
+
+    def list_activities(self, client, start_date, end_date) -> pd.DataFrame:
+        """
+        List running activities between start_date and end_date as per-activity summaries.
+
+        Returns a DataFrame with: activity_id, name, date, type, distance_miles, avg_hr, pace_min_per_mile
+        """
+        if isinstance(start_date, str):
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        elif isinstance(start_date, datetime):
+            start_dt = start_date
+        elif isinstance(start_date, date):
+            start_dt = datetime.combine(start_date, datetime.min.time())
+        else:
+            raise TypeError("start_date must be a datetime, date, or 'YYYY-MM-DD' string")
+
+        if isinstance(end_date, str):
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        elif isinstance(end_date, datetime):
+            end_dt = end_date
+        elif isinstance(end_date, date):
+            end_dt = datetime.combine(end_date, datetime.min.time())
+        else:
+            raise TypeError("end_date must be a datetime, date, or 'YYYY-MM-DD' string")
+
+        api_start = start_dt.strftime('%Y-%m-%d')
+        api_end = end_dt.strftime('%Y-%m-%d')
+
+        activities = client.get_activities_by_date(api_start, api_end)
+
+        rows = []
+        for activity in activities:
+            activity_type = activity.get('activityType', {}).get('typeKey', '').lower()
+            if activity_type not in ['treadmill_running', 'running', 'manual', 'track_running']:
+                continue
+            distance_m = activity.get('distance') or 0.0
+            distance_miles = distance_m / 1609.34 if distance_m else 0.0
+            duration_sec = activity.get('duration') or 0
+            pace_min_per_mile = (duration_sec / 60 / distance_miles) if distance_miles > 0 else None
+            rows.append({
+                'activity_id': activity.get('activityId'),
+                'name': activity.get('activityName'),
+                'date': activity.get('startTimeLocal'),
+                'type': activity_type,
+                'distance_miles': round(distance_miles, 2),
+                'avg_hr': activity.get('averageHR'),
+                'pace_min_per_mile': round(pace_min_per_mile, 2) if pace_min_per_mile is not None else None,
+            })
+        return pd.DataFrame(rows)
+
+    def get_health_snapshot(self, client, target_date) -> pd.DataFrame:
+        """
+        Return sleep, HRV, and resting heart rate for a given date.
+
+        Returns a one-row DataFrame with: date, sleep_score, hrv, resting_heart_rate
+        """
+        if isinstance(target_date, str):
+            date_str = target_date
+        elif isinstance(target_date, (datetime, date)):
+            date_str = target_date.strftime('%Y-%m-%d')
+        else:
+            raise TypeError("target_date must be a datetime, date, or 'YYYY-MM-DD' string")
+
+        sleep_data = client.get_sleep_data(date_str)
+        try:
+            hrv_data = client.get_hrv_data(date_str)
+            hrv = hrv_data['hrvSummary']['lastNightAvg']
+        except Exception:
+            hrv = None
+
+        resting_heart_rate = sleep_data.get('restingHeartRate') if isinstance(sleep_data, dict) else None
+        sleep_score = None
+        if isinstance(sleep_data, dict):
+            sleep_score = (
+                sleep_data.get('dailySleepDTO', {})
+                .get('sleepScores', {})
+                .get('overall', {})
+                .get('value')
+            )
+
+        return pd.DataFrame([{
+            'date': date_str,
+            'sleep_score': sleep_score,
+            'hrv': hrv,
+            'resting_heart_rate': resting_heart_rate,
+        }])
 
     def get_days_since_start(self, activity_summary):
         activity_id = activity_summary.iloc[0]['activity_id']

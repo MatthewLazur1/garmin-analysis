@@ -4,10 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import sys
+from pathlib import Path
 import os
 
 # Add the back-end directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'back_end'))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from back_end.report_objects.report_reader import ReportReader
 from back_end.report_objects.report_manager import ReportManager

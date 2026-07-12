@@ -1,5 +1,3 @@
-import os
-import json
 import re
 from datetime import date, datetime, timedelta
 from typing import Optional, Tuple, Dict, Any, List
@@ -259,76 +257,7 @@ class MarathonPlan:
         # Always return a fresh DataFrame view
         return self.name, self.start, self.end, self.to_dataframe()
     
-    def save_plan(self) -> None:
-        root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        plans_dir = os.path.join(root, 'plans')
-        os.makedirs(plans_dir, exist_ok=True)
-        csv_path = os.path.join(plans_dir, f"{self.name}.csv")
-        self.to_dataframe().to_csv(csv_path, index=False)
-        json_path = os.path.join(plans_dir, f"{self.name}.json")
-        metadata = {
-            'name': self.name,
-            'start_date': self.start.isoformat(), # Convert date objects to strings
-            'race_date': self.end.isoformat()
-        }
-        with open(json_path, 'w') as f:
-            json.dump(metadata, f)
-
-    def load_plan(self) -> None:
-        root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        plans_dir = os.path.join(root, 'plans')
-        json_path = os.path.join(plans_dir, f"{self.name}.json")
-        with open(json_path, 'r') as f:
-            metadata = json.load(f)
-            self.name = metadata['name']
-            self.start = datetime.fromisoformat(metadata['start_date'])
-            self.end = datetime.fromisoformat(metadata['race_date'])
-            csv_path = os.path.join(plans_dir, f"{self.name}.csv")
-            df = pd.read_csv(csv_path)
-            # Rebuild object model from DataFrame
-            self.from_dataframe(df)
-            self.df = self.to_dataframe()
-
-    # Centralized persistence helpers
-    def save_to_disk(self, plans_dir: str) -> None:
-        os.makedirs(plans_dir, exist_ok=True)
-        csv_path = os.path.join(plans_dir, f"{self.name}.csv")
-        self.to_dataframe().to_csv(csv_path, index=False)
-        json_path = os.path.join(plans_dir, f"{self.name}.json")
-        with open(json_path, 'w') as f:
-            json.dump({
-                'name': self.name,
-                'start_date': self.start.isoformat(),
-                'race_date': self.end.isoformat(),
-            }, f)
-
-    @classmethod
-    def load_from_disk(cls, name: str, plans_dir: str) -> 'MarathonPlan':
-        json_path = os.path.join(plans_dir, f"{name}.json")
-        csv_path = os.path.join(plans_dir, f"{name}.csv")
-        with open(json_path, 'r') as f:
-            metadata = json.load(f)
-        start = datetime.fromisoformat(metadata['start_date']).date()
-        end = datetime.fromisoformat(metadata['race_date']).date()
-        df = pd.read_csv(csv_path)
-        plan = cls(name, start, end)
-        plan.from_dataframe(df)
-        plan.df = plan.to_dataframe()
-        return plan
-        
-
-    # No persistence here; storage is handled by ReportManager
-
-    # ---------- Internal helpers ----------
-
-
-    def _to_dict(self) -> Dict[str, Any]:
-        return {
-            'name': self.name,
-            'start_date': self.start.strftime('%Y-%m-%d'),
-            'end_date': self.end.strftime('%Y-%m-%d'),
-            'df': self.df
-        }
+    # No persistence here; storage is handled by ReportManager via plan_repository
 
     # ---------- Object/DataFrame conversion ----------
     def to_dataframe(self) -> pd.DataFrame:

@@ -1,16 +1,16 @@
-import os
-import json
 from datetime import date, datetime
 from typing import Dict, Any, List, Optional, Tuple
 
 import pandas as pd
 
-from report_objects.report_builder import ReportBuilder
+from back_end.db import get_engine
+from back_end.report_objects.report_builder import ReportBuilder
 from back_end.marathon_objects.marathon_plan_manager import MarathonPlan
-from report_objects.report_reader import ReportReader
+from back_end.marathon_objects import plan_repository
+from back_end.report_objects.report_reader import ReportReader
 from back_end.predictive_models.regression_predictive_model import PredictivePacingModel
 from back_end.predictive_models.pca_predictive_model import PredictivePacingModelPCA
-from constants import (
+from back_end.constants import (
     REGRESSION_START_DATE_YEAR,
     REGRESSION_START_DATE_MONTH,
     REGRESSION_START_DATE_DAY,
@@ -25,9 +25,8 @@ class ReportManager:
         self.report_builder = ReportBuilder()
         self.report_reader = ReportReader()
         self.marathon_plans = {}
-        # Project root for plan files (JSON/CSV stored at repo root)
-        self._root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        self._plans_dir = os.path.join(self._root, 'plans')
+        self._engine = get_engine()
+        plan_repository.ensure_schema(self._engine)
         # Predictive model holder
         self.pacing_model: Optional[PredictivePacingModel] = None
         self.pacing_model_pca: Optional[PredictivePacingModelPCA] = None
@@ -208,18 +207,8 @@ class ReportManager:
 
     # -------- Marathon Plan Management (multi-plan) --------
     def list_plans(self) -> List[str]:
-        # Return names based on *.json files at root (filename stem)
-        try:
-            os.makedirs(self._plans_dir, exist_ok=True)
-            files = os.listdir(self._plans_dir)
-        except Exception:
-            return []
-        names: List[str] = []
-        for f in files:
-            if f.lower().endswith('.json'):
-                name = os.path.splitext(f)[0]
-                names.append(name)
-        # include in-memory plans that may not be on disk yet
+        names = plan_repository.list_plan_names(self._engine)
+        # include in-memory plans that may not be saved yet
         names.extend([n for n in self.marathon_plans.keys() if n not in names])
         return sorted(names)
 
@@ -232,14 +221,8 @@ class ReportManager:
         if name in self.marathon_plans:
             plan_obj: MarathonPlan = self.marathon_plans[name]
         else:
-            os.makedirs(self._plans_dir, exist_ok=True)
-            json_path = os.path.join(self._plans_dir, f"{name}.json")
-            csv_path = os.path.join(self._plans_dir, f"{name}.csv")
-            if not os.path.exists(json_path) or not os.path.exists(csv_path):
-                return None
-            try:
-                plan_obj = MarathonPlan.load_from_disk(name, self._plans_dir)
-            except Exception:
+            plan_obj = plan_repository.load_plan(self._engine, name)
+            if plan_obj is None:
                 return None
             self.marathon_plans[name] = plan_obj
         marathon_name, start, end, df = plan_obj.get_plan()
@@ -258,7 +241,4 @@ class ReportManager:
         plan_obj.end = race
         plan_obj.from_dataframe(df.copy())
         plan_obj.df = plan_obj.to_dataframe()
-        plan_obj.save_to_disk(self._plans_dir)
-        
-
-    # Legacy helpers removed; persistence centralized in MarathonPlan
+        plan_repository.save_plan(self._engine, plan_obj)

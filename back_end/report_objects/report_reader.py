@@ -8,7 +8,6 @@ import garminconnect
 import datetime
 import requests
 import pandas as pd
-from dotenv import load_dotenv
 import os
 import garth
 from garth.exc import GarthHTTPError
@@ -22,7 +21,6 @@ class ReportReader:
         """
         Fetch weather data using OpenWeatherMap API (requires API key)
         """
-        load_dotenv()
         api_key = os.getenv("OPENWEATHERMAP_API_KEY")
         
         if not api_key:
@@ -69,7 +67,6 @@ class ReportReader:
         Fetch Garmin client with persistent auth using garth token management.
         Based on example.py implementation.
         """
-        load_dotenv()
         email = os.getenv("GARMIN_EMAIL")
         password = os.getenv("GARMIN_PASSWORD")
         tokenstore = os.getenv("GARMINTOKENS") or "~/.garminconnect"
